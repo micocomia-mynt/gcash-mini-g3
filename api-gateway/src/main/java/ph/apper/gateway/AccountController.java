@@ -1,10 +1,8 @@
 package ph.apper.gateway;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import ph.apper.gateway.payload.*;
 
@@ -38,7 +36,7 @@ public class AccountController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<String> verify(@Valid @RequestBody VerifyAccountRequest request) throws URISyntaxException {
+    public ResponseEntity<String> verify(@Valid @RequestBody VerifyAccountRequest request){
         String url = gCashMiniProperties.getAccountUrl() + "/verify";
         ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
@@ -60,5 +58,17 @@ public class AccountController {
         }
 
         return ResponseEntity.status(response.getStatusCode()).build();
+    }
+
+    @PatchMapping("/{Id}")
+    public ResponseEntity<AccountData> updateAccount(@PathVariable String Id, @Valid @RequestBody UpdateAccountRequest request){
+        String url = gCashMiniProperties.getAccountUrl() + "/" + Id;
+
+        try{
+            AccountData response = restTemplate.patchForObject(url, request, AccountData.class);
+            return ResponseEntity.ok(response);
+        }catch (Exception e){
+            return ResponseEntity.badRequest().build();
+        }
     }
 }
