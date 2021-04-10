@@ -25,6 +25,7 @@ public class ActivityController {
     @GetMapping
     public ResponseEntity<List<Activity>> getAll() {
         ResponseEntity<Activity[]> response = restTemplate.getForEntity(gCashMiniProperties.getActivityUrl(), Activity[].class);
+
         if (response.getStatusCode().is2xxSuccessful()) {
             List<Activity> activities = Arrays.asList(response.getBody());
             return ResponseEntity.ok(activities);

@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@RequestMapping
+@RequestMapping("activity")
 public class ActivityController {
 
     private final List<Activity> activities = new ArrayList<>();

@@ -55,6 +55,36 @@ POST /account/authenticate
 }
 ```
 
+### Get Account
+```json
+GET /account/ACCT123
+
+200 OK
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "jdoe@apper.ph",
+  "balance": 12500.45,
+  "loggedIn": True 
+}
+
+404 NOT FOUND
+```
+
+### Update Account
+Balance and loggedIn fields are optional.
+```json
+PATCH /account/ACCT123
+
+200 OK
+{
+  "balance": 1000.00,
+  "loggedIn": "New_PassW0rd" 
+}
+
+404 NOT FOUND
+```
+
 ### Add Product
 ```json
 POST /product
@@ -92,20 +122,6 @@ POST /transfer
 200 OK
 ```
 
-### Get Account
-```json
-GET /account/ACCCT123
-
-200 OK
-{
-  "firstName": "John",
-  "lastName": "Doe",
-  "email": "jdoe@apper.ph",
-  "balance": 12500.45
-}
-
-404 NOT FOUND
-```
 
 ### Get Product
 ```json
