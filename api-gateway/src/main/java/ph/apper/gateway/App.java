@@ -29,5 +29,6 @@ public class App {
     public static class GCashMiniProperties {
         private String activityUrl;
         private String accountUrl;
+        private  String financialUrl;
     }
 }

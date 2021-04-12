@@ -1,33 +1,29 @@
 package ph.apper.finance.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import ph.apper.finance.payload.AccountData;
-import ph.apper.finance.util.Activity;
 import ph.apper.finance.domain.AddMoneyTransaction;
+import ph.apper.finance.domain.TransferTransaction;
+import ph.apper.finance.payload.AccountData;
 import ph.apper.finance.repository.AddMoneyTransactionsRepository;
 import ph.apper.finance.repository.TransferTransactionsRepository;
-import ph.apper.finance.domain.TransferTransaction;
+import ph.apper.finance.util.Activity;
 import ph.apper.finance.util.IdService;
 
-import java.lang.Double;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 
 
 @RestController
-@RequestMapping("finances")
+@RequestMapping("finance")
 public class TransactionController {
     private static final Logger LOGGER = LoggerFactory.getLogger(TransactionController.class);
     private final TransferTransactionsRepository transferTransactionsRepository;
@@ -149,7 +145,7 @@ public class TransactionController {
 
 
     private Map getAccountRequest(String accountId){
-        ObjectMapper mapper = new ObjectMapper();
+
         try {
             ResponseEntity<Map> response = restTemplate.getForEntity("http://localhost:8081/account/" + accountId, Map.class);
             LOGGER.info(String.valueOf(response.getBody()));
@@ -170,28 +166,22 @@ public class TransactionController {
 
     private ResponseEntity transferProcess(Map senderAccount, Map receiverAccount, TransferRequest request){
 
-
         if(((Double) senderAccount.get("balance")).compareTo(request.getAmount()) >= 0 && receiverAccount != null){
 
             try{
                 Double newSenderBalance = ((Double)senderAccount.get("balance"))-(request.getAmount());
                 Double newReceiverBalance = ((Double)receiverAccount.get("balance"))+(request.getAmount());
 
-                //Create patch request to account management API:
+                //Sender balance update
                 UpdateAccountRequest updateAccountRequest = new UpdateAccountRequest();
                 updateAccountRequest.setBalance(newSenderBalance);
-
-
                 String url_sender = "http://localhost:8081/account/" + request.getFromAccountId();
                 AccountData senderResponse = restTemplate.patchForObject(url_sender, updateAccountRequest, AccountData.class);
 
-
                 LOGGER.info("Deducted {} amount from {} for transfer", request.getAmount(), request.getFromAccountId());
 
-
+                //Receiver balance update:
                 updateAccountRequest.setBalance(newReceiverBalance);
-
-
                 String url_receiver = "http://localhost:8081/account/" + request.getToAccountId();
                 LOGGER.info(url_receiver);
 
@@ -201,7 +191,14 @@ public class TransactionController {
 
                 return ResponseEntity.ok().build();
 
-            } catch( Exception err){
+            } catch(Exception err){
+                //Balance deduction rollback
+                UpdateAccountRequest updateAccountRequest = new UpdateAccountRequest();
+                updateAccountRequest.setBalance((Double) senderAccount.get("balance"));
+                String url_sender = "http://localhost:8081/account/" + request.getFromAccountId();
+                AccountData senderResponse = restTemplate.patchForObject(url_sender, updateAccountRequest, AccountData.class);
+
+                //Create failed transaction record and response
                 createTransaction(request, Boolean.FALSE, TransactionType.TRANSFER);
                 LOGGER.error("transferProcess Error: " + err);
                 err.printStackTrace(System.out);
@@ -209,6 +206,7 @@ public class TransactionController {
             }
 
         } else {
+            LOGGER.info("Insufficient balance");
             createTransaction(request, Boolean.FALSE, TransactionType.TRANSFER);
             return  ResponseEntity.badRequest().build();
         }

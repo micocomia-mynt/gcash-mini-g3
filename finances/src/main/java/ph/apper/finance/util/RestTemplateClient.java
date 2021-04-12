@@ -10,8 +10,6 @@ public class RestTemplateClient {
     public RestTemplate restTemplate() {
         return new RestTemplate(new HttpComponentsClientHttpRequestFactory());
     }
-
-
 }
 
 
