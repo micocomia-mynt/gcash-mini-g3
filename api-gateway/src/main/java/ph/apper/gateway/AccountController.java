@@ -60,6 +60,19 @@ public class AccountController {
         return ResponseEntity.status(response.getStatusCode()).build();
     }
 
+    @GetMapping("/{Id}")
+    public ResponseEntity<AccountData> getAccount(@PathVariable String Id){
+        String url = gCashMiniProperties.getAccountUrl() + "/" + Id;
+        ResponseEntity<AccountData> response = restTemplate.getForEntity(url, AccountData.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            AccountData accountData = response.getBody();
+            return ResponseEntity.ok(accountData);
+        }
+
+        return ResponseEntity.status(response.getStatusCode()).build();
+    }
+
     @PatchMapping("/{Id}")
     public ResponseEntity<AccountData> updateAccount(@PathVariable String Id, @Valid @RequestBody UpdateAccountRequest request){
         String url = gCashMiniProperties.getAccountUrl() + "/" + Id;
