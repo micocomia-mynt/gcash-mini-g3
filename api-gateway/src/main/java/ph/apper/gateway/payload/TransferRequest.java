@@ -1,4 +1,4 @@
-package ph.apper.finance.controller;
+package ph.apper.gateway.payload;
 
 import lombok.Data;
 
