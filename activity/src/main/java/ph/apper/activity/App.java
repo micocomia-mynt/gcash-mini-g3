@@ -8,7 +8,7 @@ import org.springframework.boot.context.ApplicationPidFileWriter;
 public class App {
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(App.class);
-        application.addListeners(new ApplicationPidFileWriter());
+        application.addListeners(new ApplicationPidFileWriter("activity_process.pid"));
         application.run(args);
     }
 }
