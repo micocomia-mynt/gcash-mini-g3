@@ -25,12 +25,13 @@ public class ProductController {
     @PostMapping
     public ResponseEntity<ProductResponse> addProduct(@Valid @RequestBody Product request) {
         try {
-            String productId = productService.addProduct(request);
+            String productId = productService.addProduct(request.getName(), request.getPrice());
             ProductResponse response = new ProductResponse();
             response.setProductId(productId);
+            LOGGER.info("SUCCESS: Added product with id {}", productId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            LOGGER.error("ERROR: ", e);
+            LOGGER.error("ERROR: Failed to add product", e);
             return ResponseEntity.badRequest().build();
         }
     }
@@ -40,7 +41,7 @@ public class ProductController {
         try {
             return ResponseEntity.ok(productService.getProduct(productId));
         } catch(Exception e) {
-            LOGGER.error("ERROR: ", e);
+            LOGGER.error("ERROR: Product not found", e);
             return ResponseEntity.notFound().build();
         }
 
