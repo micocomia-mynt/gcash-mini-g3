@@ -8,15 +8,7 @@ import java.math.BigDecimal;
 public class AddMoneyRequest {
     private String accountId;
     private Double amount;
-    private String password;
 
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
 
     public String getAccountId() {
         return accountId;

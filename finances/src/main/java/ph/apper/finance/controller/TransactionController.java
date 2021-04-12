@@ -180,7 +180,7 @@ public class TransactionController {
                 //Create patch request to account management API:
                 UpdateAccountRequest updateAccountRequest = new UpdateAccountRequest();
                 updateAccountRequest.setBalance(newSenderBalance);
-                updateAccountRequest.setPassword(request.getSenderPassword());
+
 
                 String url_sender = "http://localhost:8081/account/" + request.getFromAccountId();
                 AccountData senderResponse = restTemplate.patchForObject(url_sender, updateAccountRequest, AccountData.class);
@@ -190,9 +190,7 @@ public class TransactionController {
 
 
                 updateAccountRequest.setBalance(newReceiverBalance);
-                updateAccountRequest.setPassword(request.getReceiverPassword());
 
-                LOGGER.info("Got this far:" + updateAccountRequest.getBalance() + " " + updateAccountRequest.getPassword());
 
                 String url_receiver = "http://localhost:8081/account/" + request.getToAccountId();
                 LOGGER.info(url_receiver);
@@ -223,7 +221,7 @@ public class TransactionController {
                 Double newUserBalance = ((Double)userAccount.get("balance"))+(request.getAmount());
                 UpdateAccountRequest updateAccountRequest = new UpdateAccountRequest();
                 updateAccountRequest.setBalance(newUserBalance);
-                updateAccountRequest.setPassword(request.getPassword());
+
 
                 //Create patch request to account management API:
                 String url = "http://localhost:8081/account/" + request.getAccountId();

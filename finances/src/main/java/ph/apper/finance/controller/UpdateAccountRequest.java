@@ -5,5 +5,4 @@ import lombok.Data;
 @Data
 public class UpdateAccountRequest {
     private Double balance;
-    private String password;
 }

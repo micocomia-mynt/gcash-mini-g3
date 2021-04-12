@@ -10,24 +10,6 @@ public class TransferRequest{
     private String toAccountId;
     private Double amount;
 
-    public String getSenderPassword() {
-        return senderPassword;
-    }
-
-    public void setSenderPassword(String senderPassword) {
-        this.senderPassword = senderPassword;
-    }
-
-    public String getReceiverPassword() {
-        return receiverPassword;
-    }
-
-    public void setReceiverPassword(String receiverPassword) {
-        this.receiverPassword = receiverPassword;
-    }
-
-    private String senderPassword;
-    private String receiverPassword;
 
     public String getFromAccountId() {
         return fromAccountId;
