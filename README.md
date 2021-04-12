@@ -72,14 +72,14 @@ GET /account/ACCT123
 ```
 
 ### Update Account
-Balance and loggedIn fields are optional.
+Balance and password fields are optional.
 ```json
 PATCH /account/ACCT123
 
 200 OK
 {
   "balance": 1000.00,
-  "loggedIn": "New_PassW0rd" 
+  "password": "New_PassW0rd" 
 }
 
 404 NOT FOUND
