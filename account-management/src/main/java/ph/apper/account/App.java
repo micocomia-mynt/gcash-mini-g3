@@ -10,7 +10,7 @@ import org.springframework.web.client.RestTemplate;
 public class App {
     public static void main(String[] args) {
         SpringApplication app = new SpringApplication(App.class);
-        app.addListeners(new ApplicationPidFileWriter());
+        app.addListeners(new ApplicationPidFileWriter("account_process.pid"));
         app.run(args);
     }
 
