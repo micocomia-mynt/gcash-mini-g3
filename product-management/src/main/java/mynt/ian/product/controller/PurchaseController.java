@@ -1,15 +1,15 @@
 package mynt.ian.product.controller;
 
 import mynt.ian.product.ProductService;
-import mynt.ian.product.payload.AccountData;
-import mynt.ian.product.payload.ProductEntry;
-import mynt.ian.product.payload.PurchaseProduct;
-import mynt.ian.product.payload.UpdateAccountRequest;
+import mynt.ian.product.payload.*;
 import mynt.ian.product.repository.ProductRepository;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,7 +39,7 @@ public class PurchaseController {
     }
 
     @PostMapping
-    public ResponseEntity purchase(@Valid @RequestBody PurchaseProduct request) {
+    public ResponseEntity<Object> purchase(@Valid @RequestBody PurchaseProduct request) {
 
         String productId = request.getProductId();
         String accountId = request.getAccountId();
@@ -55,7 +55,13 @@ public class PurchaseController {
 
         // Check balance of accountId
         String url = reqUrl + "/" + accountId;
-        ResponseEntity<AccountData> response = restTemplate.getForEntity(url, AccountData.class);
+        ResponseEntity<AccountData> response;
+        try {
+            response = restTemplate.getForEntity(url, AccountData.class);
+        } catch (Exception err) {
+            LOGGER.error("ERROR: Account with id {} not found", accountId);
+            return ResponseEntity.notFound().build();
+        }
 
         // Check if API call to Account-Management is successful
         if (response.getStatusCode().is2xxSuccessful()) {
@@ -67,6 +73,7 @@ public class PurchaseController {
 
         // Get account balance
         float balance = response.getBody().getBalance();
+        LOGGER.info("BALANCE: {}", balance);
 
         // Check if balance is enough to buy the product
         if (balance < price) {
@@ -74,11 +81,15 @@ public class PurchaseController {
             return ResponseEntity.badRequest().build();
         }
 
+        LOGGER.info("Purchasing product...");
         float newBalance = balance - price;
+        LOGGER.info("UPDATED BALANCE: {}", newBalance);
 
         // Update account balance
         UpdateAccountRequest updateRequest = new UpdateAccountRequest();
         updateRequest.setBalance(newBalance);
+        CloseableHttpClient client = HttpClients.createDefault();
+        restTemplate.setRequestFactory(new HttpComponentsClientHttpRequestFactory(client));
         AccountData updateResponse = restTemplate.patchForObject(url, updateRequest, AccountData.class);
 
         if (updateResponse == null) {
@@ -86,7 +97,7 @@ public class PurchaseController {
             return ResponseEntity.badRequest().build();
         }
 
-        productService.recordActivity("PURCHASE_PRODUCT", "accountId="+accountId, "");
+        productService.recordActivity("PURCHASE_PRODUCT", "accountId=" + accountId, "");
         return ResponseEntity.ok().build();
     }
 

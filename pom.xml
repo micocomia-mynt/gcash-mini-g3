@@ -8,6 +8,7 @@
         <module>activity</module>
         <module>account-management</module>
         <module>finances</module>
+        <module>product-management</module>
     </modules>
     <parent>
         <groupId>org.springframework.boot</groupId>
