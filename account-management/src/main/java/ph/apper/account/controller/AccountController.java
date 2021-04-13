@@ -9,6 +9,7 @@ import ph.apper.account.payload.*;
 import ph.apper.account.service.AccountService;
 
 import javax.validation.Valid;
+import java.util.List;
 
 @RestController
 @RequestMapping("account")
@@ -80,6 +81,16 @@ public class AccountController {
         }
 
         return ResponseEntity.badRequest().build();
+    }
+
+    @GetMapping
+    public ResponseEntity<List<AccountData>>getAccounts(){
+        try{
+            List<AccountData> accountList = accountService.getAccounts();
+            return ResponseEntity.ok(accountList);
+        }catch (Exception e){
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PatchMapping("/{Id}")

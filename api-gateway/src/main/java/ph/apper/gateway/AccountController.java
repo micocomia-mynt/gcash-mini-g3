@@ -9,6 +9,7 @@ import ph.apper.gateway.payload.*;
 import javax.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -68,6 +69,19 @@ public class AccountController {
         if (response.getStatusCode().is2xxSuccessful()) {
             AccountData accountData = response.getBody();
             return ResponseEntity.ok(accountData);
+        }
+
+        return ResponseEntity.status(response.getStatusCode()).build();
+    }
+
+    @GetMapping
+    public ResponseEntity<List<AccountData>> getAccounts(){
+        String url = gCashMiniProperties.getAccountUrl();
+        ResponseEntity<AccountData[]> response = restTemplate.getForEntity(url, AccountData[].class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            List<AccountData> accountList = Arrays.asList(response.getBody());
+            return ResponseEntity.ok(accountList);
         }
 
         return ResponseEntity.status(response.getStatusCode()).build();

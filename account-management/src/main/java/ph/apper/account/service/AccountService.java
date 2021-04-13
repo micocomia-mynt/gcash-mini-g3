@@ -1,9 +1,11 @@
 package ph.apper.account.service;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang.RandomStringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -16,9 +18,7 @@ import ph.apper.account.payload.CreateActivityRequest;
 import ph.apper.account.payload.UpdateAccountRequest;
 import ph.apper.account.util.IdService;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class AccountService {
@@ -30,12 +30,16 @@ public class AccountService {
 
     private final RestTemplate restTemplate;
 
+    @Value("${gcash.mini.activityUrl}")
+    private String actUrl;
+
     public AccountService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
     public String createAccount(String email, String firstName, String lastName, String clearPassword) throws AccountRegistrationException {
         if (accounts.containsKey(email)) {
+            recordActivity("EMAIL_EXISTING", "email="+email, "");
             throw new AccountRegistrationException("email already registered");
         }
 
@@ -75,6 +79,7 @@ public class AccountService {
                 .findFirst();
 
         if (optAccount.isEmpty()) {
+            recordActivity("VER_FAILED", "email="+email, "Invalid details.");
             throw new AccountVerificationException("Invalid verification details");
         }
 
@@ -106,11 +111,11 @@ public class AccountService {
                 LOGGER.warn("Invalid login.");
             }
 
+            recordActivity("ACCT_AUTH", "email="+email, accountStatus.toString());
             return passwordVerification.verified;
         }
 
-        recordActivity("ACCT_AUTH", "email="+email, accountStatus.toString());
-
+        recordActivity("ACCT_NOT_AUTH", "email="+email, accountStatus.toString());
         throw new AccountAuthenticationException("Invalid login");
     }
 
@@ -131,9 +136,12 @@ public class AccountService {
                 }).findFirst();
 
         if(optAccount.isEmpty()) {
+            recordActivity("ACCT_NOT_FOUND", "id="+id, "");
             throw new AccountNotFoundException("Account " + id + " not found");
         }
 
+        LOGGER.info("Got Account " + id);
+        recordActivity("ACCT_RETRIEVAL", "id="+id, "");
         return accountData;
     }
 
@@ -164,9 +172,26 @@ public class AccountService {
             throw new AccountNotFoundException("Account " + id + " not found");
         }
 
-        LOGGER.info("Got Account " + id);
-        recordActivity("ACCT_RETRIEVAL", "id="+id, "");
         return optAccount.get();
+    }
+
+    public List<AccountData> getAccounts(){
+        List<AccountData> accountList = new ArrayList<>();
+
+        for (Map.Entry<String,Account> entry : accounts.entrySet()) {
+            AccountData accountData = new AccountData();
+            accountData.setBalance(entry.getValue().getBalance());
+            accountData.setEmail(entry.getKey());
+            accountData.setFirstName(entry.getValue().getFirstName());
+            accountData.setLastName(entry.getValue().getLastName());
+            accountData.setLoggedIn(entry.getValue().isLoggedIn());
+
+            accountList.add(accountData);
+        }
+
+        LOGGER.info("Got Accounts");
+        recordActivity("ALL_ACCT_RETRIEVAL", "GET", "Get all activities");
+        return accountList;
     }
 
     public void updateAccount(String id, UpdateAccountRequest request) throws AccountNotLoggedInException {
@@ -215,7 +240,7 @@ public class AccountService {
         request.setIdentifier(identifier);
         request.setDetails(details);
 
-        ResponseEntity<Object> response = restTemplate.postForEntity("http://localhost:8084/activity", request, Object.class);
+        ResponseEntity<Object> response = restTemplate.postForEntity(actUrl, request, Object.class);
         if (response.getStatusCode().is2xxSuccessful()) {
             LOGGER.info("Activity recorded!");
         } else {

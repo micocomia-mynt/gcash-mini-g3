@@ -1,5 +1,6 @@
 package ph.apper.activity;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("activity")
+@Deprecated
 public class ActivityController {
 
     private final List<Activity> activities = new ArrayList<>();
@@ -28,5 +30,4 @@ public class ActivityController {
         activities.add(request);
         return ResponseEntity.ok().build();
     }
-
 }
