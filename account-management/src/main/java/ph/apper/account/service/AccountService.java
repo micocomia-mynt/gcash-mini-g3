@@ -1,7 +1,12 @@
 package ph.apper.account.service;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.sqs.AmazonSQS;
+import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+import com.amazonaws.services.sqs.model.SendMessageRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang.RandomStringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import ph.apper.account.App;
 import ph.apper.account.controller.AccountController;
 import ph.apper.account.domain.Account;
 import ph.apper.account.domain.PendingAccount;
@@ -24,20 +30,20 @@ import java.util.*;
 public class AccountService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountController.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final Map<String, PendingAccount> pendingAccounts = new HashMap<>();
     private final Map<String, Account> accounts = new HashMap<>();
 
-    private final RestTemplate restTemplate;
+    private final AmazonSQS amazonSQS;
+    private final App.SqsProperties sqsProperties;
 
-    @Value("${gcash.mini.activityUrl}")
-    private String actUrl;
-
-    public AccountService(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public AccountService(AmazonSQS amazonSQS, App.SqsProperties sqsProperties) {
+        this.amazonSQS = amazonSQS;
+        this.sqsProperties = sqsProperties;
     }
 
-    public String createAccount(String email, String firstName, String lastName, String clearPassword) throws AccountRegistrationException {
+    public String createAccount(String email, String firstName, String lastName, String clearPassword) throws AccountRegistrationException, JsonProcessingException {
         if (accounts.containsKey(email)) {
             recordActivity("EMAIL_EXISTING", "email="+email, "");
             throw new AccountRegistrationException("email already registered");
@@ -59,7 +65,7 @@ public class AccountService {
         return verificationCode;
     }
 
-    public void verify(String verificationCode, String email) throws AccountVerificationException {
+    public void verify(String verificationCode, String email) throws AccountVerificationException, JsonProcessingException {
         String accountId = IdService.generateId();
 
         Optional<Account> optAccount = pendingAccounts.entrySet().stream()
@@ -88,7 +94,7 @@ public class AccountService {
         accounts.put(email, optAccount.get());
     }
 
-    public boolean login(String email, String clearPassword) throws AccountAuthenticationException {
+    public boolean login(String email, String clearPassword) throws AccountAuthenticationException, JsonProcessingException {
         StringBuilder accountStatus = new StringBuilder("");
 
         if (accounts.containsKey(email)) {
@@ -119,7 +125,7 @@ public class AccountService {
         throw new AccountAuthenticationException("Invalid login");
     }
 
-    public AccountData getAccountDetails(String id) throws AccountNotFoundException{
+    public AccountData getAccountDetails(String id) throws AccountNotFoundException, JsonProcessingException {
         AccountData accountData = new AccountData();
 
         Optional<Account> optAccount = accounts.entrySet().stream()
@@ -175,7 +181,7 @@ public class AccountService {
         return optAccount.get();
     }
 
-    public List<AccountData> getAccounts(){
+    public List<AccountData> getAccounts() throws JsonProcessingException {
         List<AccountData> accountList = new ArrayList<>();
 
         for (Map.Entry<String,Account> entry : accounts.entrySet()) {
@@ -194,7 +200,7 @@ public class AccountService {
         return accountList;
     }
 
-    public void updateAccount(String id, UpdateAccountRequest request) throws AccountNotLoggedInException {
+    public void updateAccount(String id, UpdateAccountRequest request) throws AccountNotLoggedInException, JsonProcessingException {
         Account account = new Account();
         AccountData accountData = new AccountData();
 
@@ -234,17 +240,14 @@ public class AccountService {
         }
     }
 
-    private void recordActivity(String action, String identifier, String details) {
+    private void recordActivity(String action, String identifier, String details) throws JsonProcessingException {
         CreateActivityRequest request = new CreateActivityRequest();
         request.setAction(action);
         request.setIdentifier(identifier);
         request.setDetails(details);
 
-        ResponseEntity<Object> response = restTemplate.postForEntity(actUrl, request, Object.class);
-        if (response.getStatusCode().is2xxSuccessful()) {
-            LOGGER.info("Activity recorded!");
-        } else {
-            LOGGER.warn("Activity not recorded!");
-        }
+        String message = OBJECT_MAPPER.writeValueAsString(request);
+        SendMessageRequest sendMessageRequest = new SendMessageRequest(sqsProperties.getQueueUrl(), message);
+        amazonSQS.sendMessage(sendMessageRequest);
     }
 }

@@ -33,16 +33,4 @@ public class ActivityController {
 
         return ResponseEntity.status(response.getStatusCode()).build();
     }
-
-    @PostMapping
-    public ResponseEntity<Void> create(@Valid @RequestBody Activity request){
-        ResponseEntity<Void> response = restTemplate.postForEntity(gCashMiniProperties.getActivityUrl(), request, null);
-
-        if (response.getStatusCode().is2xxSuccessful()) {
-            return ResponseEntity.ok(response.getBody());
-        }
-
-        return ResponseEntity.status(response.getStatusCode()).build();
-    }
-
 }

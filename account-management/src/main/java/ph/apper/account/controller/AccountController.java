@@ -1,5 +1,6 @@
 package ph.apper.account.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +33,7 @@ public class AccountController {
             response.setVerificationCode(verificationCode);
 
             return ResponseEntity.ok(response);
-        } catch (AccountRegistrationException e) {
+        } catch (AccountRegistrationException | JsonProcessingException e) {
             LOGGER.error("Failed to register account", e);
             return ResponseEntity.badRequest().build();
         }
@@ -45,7 +46,7 @@ public class AccountController {
             LOGGER.info("Verified account");
 
             return ResponseEntity.ok(new GenericResponse("Verified account"));
-        } catch (AccountVerificationException e) {
+        } catch (AccountVerificationException | JsonProcessingException e) {
             LOGGER.error("Failed to verify account", e);
 
             return ResponseEntity.badRequest().build();
@@ -63,7 +64,7 @@ public class AccountController {
 
                 return ResponseEntity.ok(response);
             }
-        } catch (AccountAuthenticationException | AccountNotFoundException e) {
+        } catch (AccountAuthenticationException | AccountNotFoundException | JsonProcessingException e) {
             LOGGER.error("Failed to authenticate account", e);
         }
 
@@ -76,7 +77,7 @@ public class AccountController {
             AccountData accountData = accountService.getAccountDetails(Id);
             return ResponseEntity.ok(accountData);
 
-        }catch (AccountNotFoundException e){
+        }catch (AccountNotFoundException | JsonProcessingException e){
             LOGGER.error("Account not found", e);
         }
 
@@ -88,7 +89,7 @@ public class AccountController {
         try{
             List<AccountData> accountList = accountService.getAccounts();
             return ResponseEntity.ok(accountList);
-        }catch (Exception e){
+        }catch (JsonProcessingException e){
             return ResponseEntity.badRequest().build();
         }
     }
@@ -97,7 +98,7 @@ public class AccountController {
     public ResponseEntity<AccountData> updateAccount(@PathVariable String Id, @Valid @RequestBody UpdateAccountRequest request){
         try{
             accountService.updateAccount(Id, request);
-        }catch (AccountNotLoggedInException e){
+        }catch (AccountNotLoggedInException | JsonProcessingException e){
             LOGGER.error("Account not logged in.", e);
             return ResponseEntity.badRequest().build();
         }
@@ -107,7 +108,7 @@ public class AccountController {
 
             LOGGER.info("Updated account " + Id);
             return ResponseEntity.ok(accountData);
-        }catch (AccountNotFoundException e){
+        }catch (AccountNotFoundException | JsonProcessingException e){
             LOGGER.error("Account not found", e);
         }
 
