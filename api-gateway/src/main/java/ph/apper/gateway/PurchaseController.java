@@ -21,7 +21,7 @@ public class PurchaseController {
     @PostMapping
     public ResponseEntity<Object> purchase(@Valid @RequestBody PurchaseProduct request) {
         ResponseEntity<Object> response = restTemplate.postForEntity(
-                "http://localhost:8083/purchase",
+                "http://13.212.204.135:8083/purchase",
                 request,
                 Object.class
         );
