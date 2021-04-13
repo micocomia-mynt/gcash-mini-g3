@@ -1,6 +1,10 @@
 package ph.apper.finance.controller;
 
 
+import com.amazonaws.services.sqs.AmazonSQS;
+import com.amazonaws.services.sqs.model.SendMessageResult;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,11 +14,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
+import ph.apper.finance.App;
 import ph.apper.finance.domain.AddMoneyTransaction;
 import ph.apper.finance.domain.TransferTransaction;
 import ph.apper.finance.payload.AccountData;
 import ph.apper.finance.repository.AddMoneyTransactionsRepository;
 import ph.apper.finance.repository.TransferTransactionsRepository;
+import com.amazonaws.services.sqs.model.SendMessageRequest;
 import ph.apper.finance.util.Activity;
 import ph.apper.finance.util.IdService;
 
@@ -25,17 +31,28 @@ import java.util.Map;
 @RestController
 @RequestMapping("finance")
 public class TransactionController {
+
+    private final App.SqsProperties sqsProperties;
+    private final App.GCashMiniProperties gCashMiniProperties;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(TransactionController.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final AmazonSQS amazonSQS;
     private final TransferTransactionsRepository transferTransactionsRepository;
     private final AddMoneyTransactionsRepository addMoneyTransactionsRepository;
 
-    @Autowired
     private final RestTemplate restTemplate;
 
 
-    public TransactionController(TransferTransactionsRepository transferTransactionsRepository,
+    public TransactionController(App.SqsProperties sqsProperties,
+                                 App.GCashMiniProperties gCashMiniProperties,
+                                 AmazonSQS amazonSQS,
+                                 TransferTransactionsRepository transferTransactionsRepository,
                                  AddMoneyTransactionsRepository addMoneyTransactionsRepository,
                                  RestTemplate restTemplate) {
+        this.sqsProperties = sqsProperties;
+        this.gCashMiniProperties = gCashMiniProperties;
+        this.amazonSQS = amazonSQS;
         this.transferTransactionsRepository = transferTransactionsRepository;
         this.addMoneyTransactionsRepository = addMoneyTransactionsRepository;
         this.restTemplate = restTemplate;
@@ -45,7 +62,7 @@ public class TransactionController {
     @PostMapping(path = "/transfer")
     public ResponseEntity transfer(@RequestBody TransferRequest request) {
 
-        LOGGER.info("Transfer Request: " + request);
+        LOGGER.info("Transfer Request: {}", request);
         try {
             String fromAccountId = request.getFromAccountId();
             String toAccountId = request.getToAccountId();
@@ -54,7 +71,6 @@ public class TransactionController {
             Map senderAccount = getAccountRequest(fromAccountId);
             Map receiverAccount = getAccountRequest(toAccountId);
 
-            LOGGER.info("DEBUG THIS: "+ receiverAccount);
 
             if(senderAccount.get("logged_in") == Boolean.TRUE) {
                 return transferProcess(senderAccount, receiverAccount, request);
@@ -72,6 +88,7 @@ public class TransactionController {
 
     @PostMapping(path = "/add")
     public ResponseEntity addMoney(@RequestBody AddMoneyRequest request) {
+
 
         LOGGER.info("Add money request: " + request);
         try {
@@ -102,18 +119,16 @@ public class TransactionController {
                     if(request instanceof TransferRequest) {
                         TransferRequest transferRequest = (TransferRequest) request;
                         Activity transferActivity = new Activity();
-                        transferActivity.setAction("Transfer Money");
+                        transferActivity.setAction("TRANSFER_MONEY");
                         transferActivity.setIdentifier("accountId=" + transferRequest.getFromAccountId());
                         transferActivity.setDetails("Recipient user id: " + transferRequest.getToAccountId());
 
-                        ResponseEntity<Object> response = restTemplate.postForEntity("http://localhost:8084/activity",
-                                                                                        transferActivity,
-                                                                                        Object.class);
+                        SendMessageResult response = submitActivity(transferActivity);
 
-                        if (response.getStatusCode().is2xxSuccessful()) {
-                            LOGGER.info("Transfer Activity Record: Success.");
+                        if (response.getSdkHttpMetadata().getHttpStatusCode() == 200) {
+                            LOGGER.info("Add Activity Record: Success");
                         } else {
-                            LOGGER.info("Err: " + response.getStatusCode());
+                            LOGGER.info("Err: " + response.getSdkHttpMetadata().getHttpStatusCode());
                         }
                     }
                 }
@@ -121,17 +136,19 @@ public class TransactionController {
                     if (request instanceof AddMoneyRequest) {
                         AddMoneyRequest addMoneyRequest = (AddMoneyRequest) request;
                         Activity addMoneyActivity = new Activity();
-                        addMoneyActivity.setAction("Add Money");
+                        addMoneyActivity.setAction("ADD_BALANCE");
                         addMoneyActivity.setIdentifier("accountId=" + addMoneyRequest.getAccountId());
                         addMoneyActivity.setDetails("Amount: " + addMoneyRequest.getAmount());
 
-                        ResponseEntity<Object> response = restTemplate.postForEntity("http://localhost:8084/activity",
-                                                                                        addMoneyActivity,
-                                                                                        Object.class);
-                        if (response.getStatusCode().is2xxSuccessful()) {
+                        SendMessageResult response = submitActivity(addMoneyActivity);
+
+//                        ResponseEntity<Object> response = restTemplate.postForEntity("http://localhost:8084/activity",
+//                                                                                        addMoneyActivity,
+//                                                                                        Object.class);
+                        if (response.getSdkHttpMetadata().getHttpStatusCode() == 200) {
                             LOGGER.info("Add Activity Record: Success");
                         } else {
-                            LOGGER.info("Err: " + response.getStatusCode());
+                            LOGGER.info("Err: " + response.getSdkHttpMetadata().getHttpStatusCode());
                         }
                     }
                 }
@@ -142,18 +159,25 @@ public class TransactionController {
         }
     }
 
+    private SendMessageResult submitActivity(Activity activity) throws JsonProcessingException{
+
+        String message = OBJECT_MAPPER.writeValueAsString(activity);
+        return amazonSQS.sendMessage(new SendMessageRequest(sqsProperties.getQueueUrl(), message));
+    }
+
 
 
     private Map getAccountRequest(String accountId){
 
         try {
-            ResponseEntity<Map> response = restTemplate.getForEntity("http://localhost:8081/account/" + accountId, Map.class);
+            ResponseEntity<Map> response = restTemplate.getForEntity(gCashMiniProperties.getAccountUrl() + accountId, Map.class);
             LOGGER.info(String.valueOf(response.getBody()));
-
-            if(response.getBody() != null) {
+            if(response.getStatusCode().is2xxSuccessful()) {
+                if (response.getBody() != null) {
 //                @SuppressWarnings("unchecked")
 //                Map<String, Object> responseBody = mapper.readValue((String) response.getBody(), HashMap.class)
-                return response.getBody();
+                    return response.getBody();
+                }
             }
 
         } catch (Exception err){
@@ -175,14 +199,14 @@ public class TransactionController {
                 //Sender balance update
                 UpdateAccountRequest updateAccountRequest = new UpdateAccountRequest();
                 updateAccountRequest.setBalance(newSenderBalance);
-                String url_sender = "http://localhost:8081/account/" + request.getFromAccountId();
+                String url_sender = gCashMiniProperties.getAccountUrl() + request.getFromAccountId();
                 AccountData senderResponse = restTemplate.patchForObject(url_sender, updateAccountRequest, AccountData.class);
 
                 LOGGER.info("Deducted {} amount from {} for transfer", request.getAmount(), request.getFromAccountId());
 
                 //Receiver balance update:
                 updateAccountRequest.setBalance(newReceiverBalance);
-                String url_receiver = "http://localhost:8081/account/" + request.getToAccountId();
+                String url_receiver = gCashMiniProperties.getAccountUrl() + request.getToAccountId();
                 LOGGER.info(url_receiver);
 
                 AccountData receiverResponse = restTemplate.patchForObject(url_receiver, updateAccountRequest, AccountData.class);
@@ -195,7 +219,7 @@ public class TransactionController {
                 //Balance deduction rollback
                 UpdateAccountRequest updateAccountRequest = new UpdateAccountRequest();
                 updateAccountRequest.setBalance((Double) senderAccount.get("balance"));
-                String url_sender = "http://localhost:8081/account/" + request.getFromAccountId();
+                String url_sender = gCashMiniProperties.getAccountUrl() + request.getFromAccountId();
                 AccountData senderResponse = restTemplate.patchForObject(url_sender, updateAccountRequest, AccountData.class);
 
                 //Create failed transaction record and response
@@ -222,7 +246,7 @@ public class TransactionController {
 
 
                 //Create patch request to account management API:
-                String url = "http://localhost:8081/account/" + request.getAccountId();
+                String url = gCashMiniProperties.getAccountUrl() + request.getAccountId();
                 AccountData response = restTemplate.patchForObject(url, updateAccountRequest, AccountData.class);
                 LOGGER.info("Added {} balance to {}", request.getAmount(), request.getAccountId());
                 createTransaction(request, Boolean.TRUE, TransactionType.TRANSFER);
@@ -233,6 +257,16 @@ public class TransactionController {
                 createTransaction(request, Boolean.FALSE, TransactionType.TRANSFER);
                 return ResponseEntity.badRequest().build();
             }
+
+    }
+
+    private void sendSampleSQS() throws JsonProcessingException {
+        Activity addMoneyActivity = new Activity();
+        addMoneyActivity.setAction("TESTING");
+        addMoneyActivity.setIdentifier("SAMPLE EMAIL");
+        addMoneyActivity.setDetails("TEST ONLY");
+
+        SendMessageResult response = submitActivity(addMoneyActivity);
 
     }
 

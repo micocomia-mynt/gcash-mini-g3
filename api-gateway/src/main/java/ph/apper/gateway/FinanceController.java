@@ -12,17 +12,16 @@ import org.springframework.web.client.RestTemplate;
 import ph.apper.gateway.payload.AddMoneyRequest;
 import ph.apper.gateway.payload.TransferRequest;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping
 public class FinanceController {
     private static final Logger LOGGER = LoggerFactory.getLogger(FinanceController.class);
-
+    private final App.GCashMiniProperties gCashMiniProperties;
     @Autowired
     private final RestTemplate restTemplate;
 
-    public FinanceController(RestTemplate restTemplate) {
+    public FinanceController(App.GCashMiniProperties gCashMiniProperties, RestTemplate restTemplate) {
+        this.gCashMiniProperties = gCashMiniProperties;
         this.restTemplate = restTemplate;
     }
 
@@ -32,7 +31,7 @@ public class FinanceController {
 
         LOGGER.info("Transfer Request: " + request);
         try {
-            ResponseEntity<Object> response = restTemplate.postForEntity("http://localhost:8082/finance/transfer",
+            ResponseEntity<Object> response = restTemplate.postForEntity(gCashMiniProperties.getFinancialUrl() + "/transfer",
                     request,
                     Object.class);
 
@@ -54,7 +53,7 @@ public class FinanceController {
 
         LOGGER.info("Add money request: " + request);
         try {
-            ResponseEntity<Object> response = restTemplate.postForEntity("http://localhost:8082/finance/add",
+            ResponseEntity<Object> response = restTemplate.postForEntity(gCashMiniProperties.getFinancialUrl() + "/add",
                     request,
                     Object.class);
 
