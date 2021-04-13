@@ -1,5 +1,6 @@
 package mynt.ian.product.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import mynt.ian.product.ProductService;
 import mynt.ian.product.payload.*;
 import mynt.ian.product.repository.ProductRepository;
@@ -39,7 +40,7 @@ public class PurchaseController {
     }
 
     @PostMapping
-    public ResponseEntity<Object> purchase(@Valid @RequestBody PurchaseProduct request) {
+    public ResponseEntity<Object> purchase(@Valid @RequestBody PurchaseProduct request) throws JsonProcessingException {
 
         String productId = request.getProductId();
         String accountId = request.getAccountId();
@@ -97,7 +98,12 @@ public class PurchaseController {
             return ResponseEntity.badRequest().build();
         }
 
-        productService.recordActivity("PURCHASE_PRODUCT", "accountId=" + accountId, "");
+        Activity activity = new Activity();
+        activity.setAction("GET_PRODUCT");
+        activity.setIdentifier("productId="+productId);
+        activity.setDetails("");
+        productService.submitActivity(activity);
+        // productService.recordActivity("PURCHASE_PRODUCT", "accountId=" + accountId, "");
         return ResponseEntity.ok().build();
     }
 
